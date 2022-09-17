@@ -1,4 +1,5 @@
 #include "arp.h"
+#include <arpa/inet.h>
 
 #include <netinet/if_ether.h>
 #include <net/ethernet.h>
