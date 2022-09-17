@@ -20,7 +20,7 @@
  * If you don't know your device name, you can use "ifconfig" command on Linux.
  * You have to use "enp2s0f5" when you ready to upload your homework.
  */
-#define DEVICE_NAME "enp2s0f5" //記得要改
+#define DEVICE_NAME "enp2s0" //記得要改
 #define ARP_FRAME_LEN 42
 
 /*
@@ -165,13 +165,25 @@ int main(int argc, char *argv[])
 				memset(&aph,0,sizeof(aph));
 				//copy source mac address to aph
 				memcpy(aph.source_mac,req.ifr_ifru.ifru_hwaddr.sa_data,6*sizeof(uint8_t));
+				//printf("%x %x %x %x %x %x\n",aph.source_mac[0],aph.source_mac[1],aph.source_mac[2],aph.source_mac[3],aph.source_mac[4],aph.source_mac[5]);
 				//copy source ip address to aph
-				//char *my_ip = "140.117.171.50"; //my_ip
-				char *my_ip = argv[3];
+				memset(&req,0,sizeof(req));
+				if((success = strcpy(req.ifr_ifrn.ifrn_name,DEVICE_NAME)) == NULL){
+                                        perror("copy error");
+                                        exit(1);
+                                }
+				
+				if(ioctl(sockfd_send,SIOCGIFADDR,&req) < 0){
+                                        perror("ioctl error");
+                                        exit(1);
+                                }
+				char *my_ip = inet_ntoa(((struct sockaddr_in *)&req.ifr_addr)->sin_addr);//my_ip
 				if(inet_pton(AF_INET,my_ip,aph.source_ip) != 1){
 					perror("inet_pton error");
 					exit(1);
 				}
+				//printf("%s\n",my_ip);
+				//printf("%u %u %u %u\n",aph.source_ip[0],aph.source_ip[1],aph.source_ip[2],aph.source_ip[3]);
 				//copy destination ip address to aph
 				char *des_ip = argv[2];
 				if(inet_pton(AF_INET,des_ip,aph.target_ip) != 1){
@@ -218,14 +230,31 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 				struct sockaddr_ll sa1;
+				struct ifreq req1;
+				unsigned char my_ip_addr[4];
+				memset(&req1,0,sizeof(req1));
 				memset(&sa1,0,sizeof(sa1));
+				if(strcpy(req1.ifr_ifrn.ifrn_name,DEVICE_NAME) == NULL){
+                                        perror("copy error");
+                                        exit(1);
+                                }
+
+                                if(ioctl(sockfd_recv,SIOCGIFADDR,&req1) < 0){
+                                        perror("ioctl error");
+                                        exit(1);
+                                }
+				char *my_ip1 = inet_ntoa(((struct sockaddr_in *)&req1.ifr_addr)->sin_addr);//my_ip
+                                if(inet_pton(AF_INET,my_ip1,my_ip_addr) != 1){
+                                        perror("inet_pton error");
+                                        exit(1);
+                                }
 				sa1.sll_family = PF_PACKET;
 				sa1.sll_protocol = htons(ETH_P_ARP);
 				sa1.sll_ifindex = if_nametoindex(DEVICE_NAME);
 				socklen_t sa1_size = sizeof(sa1);
 				struct arp_packet ap1;
 				memset(&ap1,0,sizeof(ap1));
-				memset(arp_frame,0,sizeof(arp_frame));
+				//memset(arp_frame,0,sizeof(arp_frame));
 				while(1){
 					if((bytes = recvfrom(sockfd_recv,&ap1,sizeof(ap1),0,(struct sockaddr*) &sa1,&sa1_size)) < 0){
 						perror("recvfrom error");
@@ -244,16 +273,8 @@ int main(int argc, char *argv[])
 						ip_addr[i] = (unsigned char) a;
 						ip_str = strtok(NULL,".\n");
 					}
-					unsigned char my_ip[4]; //my_ip
-					int m;
-					char str[30];
-					strcpy(str,argv[3]);
-					char *m1 = strtok(str,".");
-					for(m = 0 ; m < 4 ; m++){
-						my_ip[m] = atoi(m1);
-						m1 = strtok(NULL,".");
-					}
-					if(is_address_equal(ptr2,ip_addr) && is_address_equal(ptr,my_ip)){
+					//unsigned char my_ip1[4] = {140,117,171,50}; //my_ip
+					if(is_address_equal(ptr2,ip_addr) && is_address_equal(ptr,my_ip_addr)){
 						if(ntohs(ap1.eth_hdr.ether_type) == ETH_P_ARP){
 							printf("Mac address of ");
 							for(i = 0 ; i < 4 ; i++){
@@ -315,7 +336,17 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		memcpy(aph.target_mac,req.ifr_ifru.ifru_hwaddr.sa_data,6*sizeof(uint8_t));
-		char *des_ip = argv[3];
+		memset(&req,0,sizeof(req));
+		if(strcpy(req.ifr_ifrn.ifrn_name,DEVICE_NAME) == NULL){
+                	perror("copy error");
+                        exit(1);
+                }
+
+                if(ioctl(sockfd_recv,SIOCGIFADDR,&req) < 0){
+                        perror("ioctl error");
+                        exit(1);
+                }
+                char *des_ip = inet_ntoa(((struct sockaddr_in *)&req.ifr_addr)->sin_addr);//my_ip
 		if(inet_pton(AF_INET,des_ip,aph.target_ip) != 1){
 			perror("inet_pton error");
 			exit(1);
