@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "traceroute.h": "c",
+        "errno.h": "c"
+    }
+}
